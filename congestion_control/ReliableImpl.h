@@ -4,6 +4,7 @@
 
 typedef struct ReliableImpl ReliableImpl;
 #include "Reliable.h"
+#include "Congestion.h"
 
 struct ReliableImpl
 {
