@@ -18,4 +18,4 @@ void reliImplClose(ReliableImpl *reliImpl);
 uint16_t reliImplChecksum(const char *buf, ssize_t len);
 uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const Segment *seg, bool isFin);
 uint32_t reliImplSendData(ReliableImpl *reliImpl, char *payload, uint16_t payloadlen, bool isFin);
-static void *reliImplRetransmission(void *args);
+void *reliImplRetransmission(void *args);
