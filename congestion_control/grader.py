@@ -96,15 +96,19 @@ def gradeBand(band, std):
 def runBandwidth(i, config, param):
     datasize, datafile = genData(param["bandwidth"]/2, param["timeout"]-20)
 
-    cmd = "./relayer %s" % config
-    relayer = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
-    cmd = "./Receiver temp.txt -p %d" % 20000
-    receiver = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
-    if args.c:
-        cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
-    else:
-        cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 10000, 50001)
-    sender = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+    try:
+        cmd = "./relayer %s" % config
+        relayer = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+        cmd = "./Receiver temp.txt -p %d" % 20000
+        receiver = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
+        if args.c:
+            cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
+        else:
+            cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 10000, 50001)
+        sender = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+    except Exception as e:
+        killprocs()
+        return 0
 
     try:
         out1, err = receiver.communicate(timeout=param["timeout"])
@@ -112,10 +116,7 @@ def runBandwidth(i, config, param):
     except Exception as e:
         receiver.kill()
         sender.kill()
-        receiver.communicate()
-        sender.communicate()
         relayer.kill()
-        relayer.communicate()
         if Exception is subprocess.TimeoutExpired:
             print("Timed out after %d seconds" % param["timeout"])
         else:
@@ -213,25 +214,29 @@ def getFairness(out1, out2):
 def runFairness(i, config, param):
     datasize, datafile = genData(param["bandwidth"]/2, fairTestTime)
 
-    cmd = "./relayer %s" % config
-    relayer = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+    try:
+        cmd = "./relayer %s" % config
+        relayer = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
 
-    cmd = "./Receiver temp1.txt -p %d" % 20000
-    receiver1 = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
-    if args.c:
-        cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
-    else:
-        cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 10000, 50001)
-    sender1 = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
-    time.sleep(covg)
+        cmd = "./Receiver temp1.txt -p %d" % 20000
+        receiver1 = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
+        if args.c:
+            cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
+        else:
+            cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 10000, 50001)
+        sender1 = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+        time.sleep(covg)
 
-    cmd = "./Receiver temp2.txt -p %d" % 40000
-    receiver2 = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
-    if args.c:
-        cmd = "./Sender  %s -p %d -r %d" % (datafile, 30000, 50003)
-    else:
-        cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 30000, 50003)
-    sender2 = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+        cmd = "./Receiver temp2.txt -p %d" % 40000
+        receiver2 = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
+        if args.c:
+            cmd = "./Sender  %s -p %d -r %d" % (datafile, 30000, 50003)
+        else:
+            cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 30000, 50003)
+        sender2 = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+    except Exception as e:
+        killprocs()
+        return 0.5
 
     try:
         out2, err = receiver2.communicate(timeout=param["timeout"])
@@ -243,13 +248,7 @@ def runFairness(i, config, param):
         receiver1.kill()
         sender2.kill()
         sender1.kill()
-        receiver2.communicate()
-        receiver1.communicate()
-        sender2.communicate()
-        sender1.communicate()
-
         relayer.kill()
-        relayer.communicate()
         if Exception is subprocess.TimeoutExpired:
             print("Timed out after %d seconds" % param["timeout"])
         else:
@@ -276,12 +275,12 @@ def runFairness(i, config, param):
     return getFairness(getOutput(out1), getOutput(out2))
 
 
+killprocs()
+
 with open("./configs/template1.xml", "r") as fin:
     configTemp1 = fin.read()
 with open("./configs/template2.xml", "r") as fin:
     configTemp2 = fin.read()
-
-killprocs()
 
 params = [
     {"pairs": 1, "bandwidth": 2500, "delay": 40, "buffer": 25, "timeout": 60},
