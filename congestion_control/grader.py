@@ -7,16 +7,11 @@ import subprocess
 import signal
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-c", action='store_true', help="use C code")
 parser.add_argument('-t', metavar='n', type=int, nargs=1, default=None, help='test Case #n')
 parser.add_argument('inpath', metavar='inpath', type=str, nargs='?', default='./', help='path to the code directory')
 parser.add_argument('outpath', metavar='outpath', type=str, nargs='?',
                     default='./', help='path to the result directory')
 args = parser.parse_args()
-if args.c:
-    print("Running C code ...")
-else:
-    print("Running Python code ...")
 
 os.chdir(args.inpath)
 
@@ -101,10 +96,7 @@ def runBandwidth(i, config, param):
         relayer = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
         cmd = "./Receiver temp.txt -p %d" % 20000
         receiver = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
-        if args.c:
-            cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
-        else:
-            cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 10000, 50001)
+        cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
         sender = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
     except Exception as e:
         killprocs()
@@ -220,19 +212,13 @@ def runFairness(i, config, param):
 
         cmd = "./Receiver temp1.txt -p %d" % 20000
         receiver1 = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
-        if args.c:
-            cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
-        else:
-            cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 10000, 50001)
+        cmd = "./Sender  %s -p %d -r %d" % (datafile, 10000, 50001)
         sender1 = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
         time.sleep(covg)
 
         cmd = "./Receiver temp2.txt -p %d" % 40000
         receiver2 = subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=sys.stderr)
-        if args.c:
-            cmd = "./Sender  %s -p %d -r %d" % (datafile, 30000, 50003)
-        else:
-            cmd = "python3 Sender.py %s -p %d -r %d" % (datafile, 30000, 50003)
+        cmd = "./Sender  %s -p %d -r %d" % (datafile, 30000, 50003)
         sender2 = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
     except Exception as e:
         killprocs()
