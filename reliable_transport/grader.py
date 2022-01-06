@@ -10,16 +10,11 @@ import signal
 # outpath = "/autograder/results"
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-c", action='store_true', help="use C code")
 parser.add_argument('-t', metavar='test', type=int, nargs=1, default=None, help='test cases')
 parser.add_argument('inpath', metavar='inpath', type=str, nargs='?', default='./', help='path to the code directory')
 parser.add_argument('outpath', metavar='outpath', type=str, nargs='?',
                     default='./', help='path to the result directory')
 args = parser.parse_args()
-if args.c:
-    print("Running C code ...")
-else:
-    print("Running Python code ...")
 
 os.chdir(args.inpath)
 
@@ -45,10 +40,7 @@ def run(param):
         generator.wait()
         cmd = "./Receiver -p 50001 -s %d -d %d -f %d temp.txt" % (param["synloss"], param["dataloss"], param["finloss"])
         receiver = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
-        if args.c:
-            cmd = "./Sender a.txt -p 10000 -r 50001"
-        else:
-            cmd = "python3 ./Sender.py a.txt -p 10000 -r 50001"
+        cmd = "./Sender a.txt -p 10000 -r 50001"
         if "seqnum" in params:
             cmd += ' -n %d' % params["seqnum"]
         sender = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
