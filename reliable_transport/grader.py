@@ -10,13 +10,20 @@ import signal
 # outpath = "/autograder/results"
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-t', metavar='test', type=int, nargs=1, default=None, help='test cases')
+parser.add_argument("-c", action='store_true', help="use C code")
+parser.add_argument('-t', metavar='n', type=int, nargs=1, default=None, help='test Case #n')
 parser.add_argument('inpath', metavar='inpath', type=str, nargs='?', default='./', help='path to the code directory')
 parser.add_argument('outpath', metavar='outpath', type=str, nargs='?',
                     default='./', help='path to the result directory')
 args = parser.parse_args()
+if args.c:
+    print("Running C code ...")
+else:
+    print("Running Python code ...")
 
 os.chdir(args.inpath)
+
+MSL = 2
 
 
 def killprocs():
@@ -38,9 +45,13 @@ def run(param):
     try:
         generator = subprocess.Popen("./generator 12582912 a.txt".split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
         generator.wait()
-        cmd = "./Receiver -p 50001 -s %d -d %d -f %d temp.txt" % (param["synloss"], param["dataloss"], param["finloss"])
+        cmd = "./Receiver -p 50001 -s %d -d %d -f %d temp.txt -t %d" % (
+            param["synloss"], param["dataloss"], param["finloss"], MSL)
         receiver = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
-        cmd = "./Sender a.txt -p 10000 -r 50001"
+        if args.c:
+            cmd = "./Sender a.txt -p 10000 -r 50001"
+        else:
+            cmd = "python3 ./Sender.py a.txt -p 10000 -r 50001"
         if "seqnum" in params:
             cmd += ' -n %d' % params["seqnum"]
         sender = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
@@ -76,16 +87,16 @@ def run(param):
 killprocs()
 
 params = [
-    {"dataloss": 0, "synloss": 0, "finloss": 0, "timeout": 35, 'seqnum': 0},
-    {"dataloss": 0, "synloss": 0, "finloss": 0, "timeout": 35, 'seqnum': 4294967296},
-    {"dataloss": 1, "synloss": 0, "finloss": 0, "timeout": 50},
-    {"dataloss": 1, "synloss": 0, "finloss": 0, "timeout": 50, 'seqnum': 4294957296},
-    {"dataloss": 5, "synloss": 0, "finloss": 0, "timeout": 60},
-    {"dataloss": 5, "synloss": 0, "finloss": 0, "timeout": 60, 'seqnum': 4294864896},
-    {"dataloss": 1, "synloss": 50, "finloss": 25, "timeout": 75},
-    {"dataloss": 1, "synloss": 50, "finloss": 25, "timeout": 75, 'seqnum': 4293508096},
-    {"dataloss": 5, "synloss": 50, "finloss": 25, "timeout": 90},
-    {"dataloss": 5, "synloss": 50, "finloss": 25, "timeout": 90, 'seqnum': 4291637248}
+    {"dataloss": 0, "synloss": 0, "finloss": 0, "timeout": 15+2*MSL, 'seqnum': 0},
+    {"dataloss": 0, "synloss": 0, "finloss": 0, "timeout": 15+2*MSL, 'seqnum': 4294967296},
+    {"dataloss": 1, "synloss": 0, "finloss": 0, "timeout": 30+2*MSL},
+    {"dataloss": 1, "synloss": 0, "finloss": 0, "timeout": 30+2*MSL, 'seqnum': 4294957296},
+    {"dataloss": 5, "synloss": 0, "finloss": 0, "timeout": 40+2*MSL},
+    {"dataloss": 5, "synloss": 0, "finloss": 0, "timeout": 40+2*MSL, 'seqnum': 4294864896},
+    {"dataloss": 1, "synloss": 50, "finloss": 25, "timeout": 55+2*MSL},
+    {"dataloss": 1, "synloss": 50, "finloss": 25, "timeout": 55+2*MSL, 'seqnum': 4293508096},
+    {"dataloss": 5, "synloss": 50, "finloss": 25, "timeout": 70+2*MSL},
+    {"dataloss": 5, "synloss": 50, "finloss": 25, "timeout": 70+2*MSL, 'seqnum': 4291637248}
 ]
 
 

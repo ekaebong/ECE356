@@ -7,14 +7,19 @@
 // 'reli' provides an interface to call functions of struct Reliable.
 // 'seqNum' indicates the initail sequence number in the SYN segment.
 // 'srvSeqNum' indicates the initial sequence number in the SYNACK segment.
+// Update: We already provided the code of reliImplCreate.
+// You do not need to implement it, but you can modify it if necessary.
 ReliableImpl *reliImplCreate(Reliable *_reli, uint32_t _seqNum, uint32_t _srvSeqNum)
 {
     ReliableImpl *reliImpl = (ReliableImpl *)malloc(sizeof(ReliableImpl));
     reliImpl->reli = _reli;
-    reliImpl->seqNum = _seqNum;
-    reliImpl->srvAckNum = _srvSeqNum + 1; //srvAckNum remains unchanged in this lab
+    reliImpl->lastByteSent = _seqNum;
+    reliImpl->nextByteExpected = _srvSeqNum + 1; // nextByteExpected remains unchanged in this lab
 
-    //TODO: Your code here
+    queueInit(&reliImpl->swnd, MAX_BDP / PAYLOAD_SIZE); // a queue to store sent segments
+    reliImpl->lastByteAcked = _seqNum;
+    reliImpl->lastAckNum = reliImpl->lastByteAcked + 1;
+    reliImpl->rto = 0.3;
 
     return reliImpl;
 }
@@ -31,11 +36,21 @@ void reliImplClose(ReliableImpl *reliImpl)
 // This function should return the value of checksum (an unsigned 16-bit integer).
 // You should calculate the checksum over 'buf', which is an array of char bytes
 // 'len' is the length of buf.
+// Update: We already provided the code of checksum and you do not need to implement it.
 uint16_t reliImplChecksum(const char *buf, ssize_t len)
 {
-    //TODO: Your code here
-
-    return 0;
+    uint32_t sum = 0;
+    for (ssize_t i = 0; i < len - 1; i += 2)
+        sum += *(uint16_t *)(buf + i);
+    if (len & 1)
+    {
+        uint16_t tmp = 0;
+        *((char *)(&tmp)) = buf[len - 1];
+        sum += tmp;
+    }
+    while (sum >> 16)
+        sum = (sum & 0xffff) + (sum >> 16);
+    return ~sum;
 }
 
 // reliImplRecvAck: When an ACK or FINACK segment is received, the framework will
@@ -45,9 +60,9 @@ uint16_t reliImplChecksum(const char *buf, ssize_t len)
 // Remember to call reliUpdateRWND to update the receive window size.
 // Note that this function should return the reduction of bytes in flight
 // (a non-negative integer) so that Reliable.h/c can update the bytes in flight.
-// 'seg' is an instance of struct Segment (see Util.h/c)
-// 'isFin'=True means 'seg' is a FINACK, otherwise it is an ACK.
-uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const Segment *seg, bool isFin)
+// 'buf' is an array of bytes of the received segment, including the segment header.
+// 'len' is the length of 'buf'.
+uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const char *buf, uint16_t len)
 {
     //TODO: Your code here
 
@@ -70,8 +85,7 @@ uint32_t reliImplSendData(ReliableImpl *reliImpl, char *payload, uint16_t payloa
     return 0;
 }
 
-// reliImplRetransmission: A callback function for retransmission
-// when you call reliSetTimer.
+// reliImplRetransmission: A callback function for retransmission when you call reliSetTimer.
 void *reliImplRetransmission(void *args)
 {
     //TODO: Your code here

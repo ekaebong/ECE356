@@ -53,32 +53,40 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (optind >= argc) //getopt() cannot permutate options on MacOS
+    if (optind >= argc) // getopt() cannot permutate options on MacOS
         usage(argv[0]);
 
     Reliable *reli = reliCreate(local_port);
     if (reli == NULL)
     {
-        fprintf(stderr, "Socket error");
+        fprintf(stderr, "Socket error\n");
         return 0;
     }
     printf("Connecting...\n");
     if (reliConnect(reli, ip_address, remote_port, nflag, n) == -1)
     {
-        fprintf(stderr, "Connect error");
+        fprintf(stderr, "Connect error\n");
         return 0;
     }
     printf("Connected to %s:%d\n", ip_address, remote_port);
 
     FILE *fin = fopen(argv[optind], "r");
+    if (fin == NULL)
+    {
+        fprintf(stderr, "Cannot find the file %s\n", argv[optind]);
+        reliClose(reli);
+        return 0;
+    }
+
     while (true)
     {
         Payload *payload = payloadCreate(PAYLOAD_SIZE, false);
         payload->len = fread(payload->buf, 1, PAYLOAD_SIZE, fin);
         if (payload->len == 0)
             break;
-        reliSend(reli, payload); //payload->buf will be free in reli
+        reliSend(reli, payload); // payload->buf will be free in reli
     }
+    
     fclose(fin);
     reliClose(reli);
     return 0;

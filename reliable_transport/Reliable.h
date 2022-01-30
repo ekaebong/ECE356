@@ -34,7 +34,7 @@ struct Reliable
     socklen_t srvlen;
 
     short status;
-    uint32_t bytesInFly, rwnd, cwnd;
+    uint32_t bytesInFlight, rwnd, cwnd;
     SafeQueue buffer;
     Heap timerHeap;
 
@@ -46,7 +46,7 @@ struct Reliable
 Reliable *reliCreate(unsigned hport);
 void reliClose(Reliable *reli);
 int reliConnect(Reliable *reli, const char *ip, unsigned rport, bool nflag, uint32_t n);
-void *reliGetPayload(Reliable *reli);           //return NULL if queue is empty
+void *reliGetPayload(Reliable *reli);           // return NULL if queue is empty
 int reliSend(Reliable *reli, Payload *payload); // block if queue is full
 
 ssize_t reliRecvfrom(Reliable *reli, char *seg_str, size_t size);

@@ -8,14 +8,21 @@ typedef struct ReliableImpl ReliableImpl;
 struct ReliableImpl
 {
     Reliable *reli;
-    uint32_t seqNum, srvAckNum;
+    uint32_t lastByteSent, nextByteExpected;
 
     // Variables for maintaining sliding window
+    uint32_t lastByteAcked, lastAckNum; // lastAckNum = lastByteAcked + 1
+    SafeQueue swnd;
+    double rto;
 };
+
 
 ReliableImpl *reliImplCreate(Reliable *_reli, uint32_t _seqNum, uint32_t _srvSeqNum);
 void reliImplClose(ReliableImpl *reliImpl);
 uint16_t reliImplChecksum(const char *buf, ssize_t len);
-uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const Segment *seg, bool isFin);
+uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const char *buf, uint16_t len);
 uint32_t reliImplSendData(ReliableImpl *reliImpl, char *payload, uint16_t payloadlen, bool isFin);
 void *reliImplRetransmission(void *args);
+
+// You can add necessary struct or class here
+
