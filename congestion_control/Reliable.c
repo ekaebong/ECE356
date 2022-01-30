@@ -27,14 +27,14 @@ int reliSend(Reliable *reli, Payload *payload)
     return queuePut(&reli->buffer, payload, 0);
 }
 
-ssize_t reliRecvfrom(Reliable *reli, char *seg_str, size_t size)
+ssize_t reliRecvfrom(Reliable *reli, char *buf, size_t size)
 {
-    return recvfrom(reli->skt, seg_str, size, 0, (struct sockaddr *)&(reli->srvaddr), &(reli->srvlen));
+    return recvfrom(reli->skt, buf, size, 0, (struct sockaddr *)&(reli->srvaddr), &(reli->srvlen));
 }
 
-ssize_t reliSendto(Reliable *reli, const char *seg_str, const size_t len)
+ssize_t reliSendto(Reliable *reli, const char *buf, const size_t len)
 {
-    return sendto(reli->skt, seg_str, len, 0, (struct sockaddr *)&reli->srvaddr, reli->srvlen);
+    return sendto(reli->skt, buf, len, 0, (struct sockaddr *)&reli->srvaddr, reli->srvlen);
 }
 
 uint32_t reliUpdateRWND(Reliable *reli, uint32_t _rwnd)
@@ -65,9 +65,9 @@ Reliable *reliCreate(unsigned hport)
 {
     Reliable *reli = (Reliable *)malloc(sizeof(Reliable));
     reli->status = CLOSED;
-    reli->bytesInFly = 0;
+    reli->bytesInFlight = 0;
     reli->rwnd = MAX_BDP;
-    reli->cwnd = 3 * PAYLOAD_SIZE;
+    reli->cwnd = INIT_CWDN;
     reli->seg_str = NULL;
     reli->reliImpl = NULL;
     queueInit(&reli->buffer, BUFFER_SIZE);
@@ -96,8 +96,8 @@ void reliClose(Reliable *reli)
         return;
 
     Payload *fin = payloadCreate(0, true);
-    reliSend(reli, fin);                 //payload.fin=true;
-    pthread_join(reli->thHandler, NULL); //return error number if thHanlder is not initialized
+    reliSend(reli, fin);                 // payload.fin=true;
+    pthread_join(reli->thHandler, NULL); // return error number if thHanlder is not initialized
 
     while (reli->buffer.count > 0)
     {
@@ -135,17 +135,23 @@ int reliConnect(Reliable *reli, const char *ip, unsigned rport, bool nflag, uint
     uint32_t seqNum = nflag ? n : rand32();
     uint32_t srvSeqNum = 0;
 
+    uint16_t buflen = sizeof(SegmentHdr) + 0;
+    char *buf = (char *)malloc(buflen * sizeof(char));
+    SegmentHdr *seg = (SegmentHdr *)buf;
+    seg->seqNum = htonl(seqNum);
+    seg->reserved_bits = seg->reserved_byte = 0;
+    seg->ackNum = seg->rwnd = seg->ack = seg->fin = 0;
+    seg->syn = 1;
+    seg->checksum = 0;
+    // memcpy(buf + sizeof(SegmentHdr), NULL, 0);
+    seg->checksum = reliImplChecksum(buf, buflen);
+
     int synretry = 0;
     reli->status = SYNSENT;
     while (reli->status != CONNECTED)
     {
-        Segment seg = {seqNum, 0, 0, 0, 1, 0, 0, NULL, 0};
-        ssize_t len = segPack(&seg, reli->seg_str, SEGMENT_SIZE);
-        seg.checksum = reliImplChecksum(reli->seg_str, len);
-        len = segPack(&seg, reli->seg_str, SEGMENT_SIZE);
-        reliSendto(reli, reli->seg_str, len);
-
-        len = reliRecvfrom(reli, reli->seg_str, SEGMENT_SIZE);
+        reliSendto(reli, buf, buflen);
+        ssize_t len = reliRecvfrom(reli, reli->seg_str, SEGMENT_SIZE);
         if (len < 0 || reliImplChecksum(reli->seg_str, len) != 0)
         {
             if (synretry > 60)
@@ -157,11 +163,11 @@ int reliConnect(Reliable *reli, const char *ip, unsigned rport, bool nflag, uint
             continue;
         }
 
-        segParse(&seg, reli->seg_str, len);
-        if (seg.syn && seg.ack && seg.ackNum == (seqNum + 1))
+        seg = (SegmentHdr *)reli->seg_str;
+        if (seg->syn && seg->ack && ntohl(seg->ackNum) == (seqNum + 1))
         {
             reli->status = CONNECTED;
-            srvSeqNum = seg.seqNum;
+            srvSeqNum = ntohl(seg->seqNum);
         }
     }
 
@@ -188,20 +194,19 @@ static void *reliHandler(void *args)
             ssize_t len = reliRecvfrom(reli, reli->seg_str, SEGMENT_SIZE);
             if (len <= 0 || reliImplChecksum(reli->seg_str, len) != 0)
                 goto outputLabel;
-            Segment seg;
-            segParse(&seg, reli->seg_str, len);
+            SegmentHdr *seg = (SegmentHdr *)reli->seg_str;
             if (reli->status == CONNECTED)
             {
-                if (seg.ack && !seg.syn && !seg.fin)
-                    reli->bytesInFly -= reliImplRecvAck(reli->reliImpl, &seg, false);
+                if (seg->ack && !seg->syn && !seg->fin)
+                    reli->bytesInFlight -= reliImplRecvAck(reli->reliImpl, reli->seg_str, len);
             }
             else if (reli->status == FINWAIT)
             {
-                if (seg.ack && !seg.syn && !seg.fin)
-                    reli->bytesInFly -= reliImplRecvAck(reli->reliImpl, &seg, false);
-                else if (seg.ack && seg.fin)
+                if (seg->ack && !seg->syn && !seg->fin)
+                    reli->bytesInFlight -= reliImplRecvAck(reli->reliImpl, reli->seg_str, len);
+                else if (seg->ack && seg->fin)
                 {
-                    reli->bytesInFly -= reliImplRecvAck(reli->reliImpl, &seg, true);
+                    reli->bytesInFlight -= reliImplRecvAck(reli->reliImpl, reli->seg_str, len);
                     reli->status = CLOSED;
                 }
             }
@@ -210,18 +215,18 @@ static void *reliHandler(void *args)
     outputLabel:;
         if (FD_ISSET(reli->skt, &outputs))
         {
-            if (reli->status != CONNECTED || reli->bytesInFly >= MIN(reli->rwnd, reli->cwnd))
+            if (reli->status != CONNECTED || reli->bytesInFlight >= MIN(reli->rwnd, reli->cwnd))
                 goto timerLabel;
             Payload *payload = reliGetPayload(reli);
             if (payload == NULL)
                 goto timerLabel;
             if (payload->fin)
             {
-                reli->bytesInFly += reliImplSendData(reli->reliImpl, NULL, 0, true);
+                reli->bytesInFlight += reliImplSendData(reli->reliImpl, NULL, 0, true);
                 reli->status = FINWAIT;
             }
             else
-                reli->bytesInFly += reliImplSendData(reli->reliImpl, payload->buf, payload->len, false);
+                reli->bytesInFlight += reliImplSendData(reli->reliImpl, payload->buf, payload->len, false);
             usleep(1); // Avoid sending too fast and overflowing UDP buffer at the receiver
             payloadClose(payload);
         }
