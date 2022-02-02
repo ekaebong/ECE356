@@ -41,8 +41,8 @@ def run(param):
         cmd = "./Receiver -p 50001 -s %d -d %d -f %d temp.txt" % (param["synloss"], param["dataloss"], param["finloss"])
         receiver = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
         cmd = "./Sender a.txt -p 10000 -r 50001"
-        if "seqnum" in params:
-            cmd += ' -n %d' % params["seqnum"]
+        if "seqnum" in param:
+            cmd += ' -n %d' % param["seqnum"]
         sender = subprocess.Popen(cmd.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
     except Exception as e:
         print(e)
