@@ -34,7 +34,7 @@ ReliableImpl *reliImplCreate(Reliable *_reli, uint32_t _seqNum, uint32_t _srvSeq
 // reliImplClose: Destructor, free the memory for maintaining states.
 void reliImplClose(ReliableImpl *reliImpl)
 {
-    //TODO: Your code here
+    // TODO: Your code here
 
     Free(reliImpl);
 }
@@ -71,13 +71,13 @@ uint16_t reliImplChecksum(const char *buf, ssize_t len)
 // 'len' is the length of 'buf'.
 uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const char *buf, uint16_t len)
 {
-    //TODO: Your code here
+    // TODO: Your code here
 
     return 0;
 }
 
 // reliImplSendData: This function is called when a piece of payload should be sent out.
-// You can call segPack in Util.h/c to encapsulate a segment and
+// You should encapsulate a segment (you can refer to the code in reliConnect function in reliable.c) and
 // call reliSetTimer (see Reliable.h) to set a Timer for retransmission.
 // Use reliSendto (see Reliable.h) to send a segment to the receiver.
 // Note that this function should return the increment of bytes in flight
@@ -87,7 +87,7 @@ uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const char *buf, uint16_t len)
 // 'isFin'=True means a FIN segment should be sent out.
 uint32_t reliImplSendData(ReliableImpl *reliImpl, char *payload, uint16_t payloadlen, bool isFin)
 {
-    //TODO: Your code here
+    // TODO: Your code here
     return 0;
 }
 
@@ -96,16 +96,16 @@ uint32_t reliImplSendData(ReliableImpl *reliImpl, char *payload, uint16_t payloa
 // You should call updateCWND to update the congestion window size.
 void *reliImplRetransmission(void *args)
 {
-    //TODO: Your code here
+    // TODO: Your code here
     return NULL;
 }
 
-// fastRetransmission: The reliImplRecvAck uses this function instead of 
-// reliImplRetransmission to do fast retransmission when reliImplRecvAck 
-// considers some segments should be fast retransmitted. 
+// fastRetransmission: The reliImplRecvAck uses this function instead of
+// reliImplRetransmission to do fast retransmission when reliImplRecvAck
+// considers some segments should be fast retransmitted.
 // You should call updateCWND to update the congestion window size.
 void *reliImplFastRetransmission(void *args)
 {
-    //TODO: Your code here
+    // TODO: Your code here
     return NULL;
 }
