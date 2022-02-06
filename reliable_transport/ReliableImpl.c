@@ -70,7 +70,7 @@ uint32_t reliImplRecvAck(ReliableImpl *reliImpl, const char *buf, uint16_t len)
 }
 
 // reliImplSendData: This function is called when a piece of payload should be sent out.
-// You can call segPack in Util.h/c to encapsulate a segment and
+// you should encapsulate a segment (you can borrow the code in reliConnect function in reliable.c) and
 // call reliSetTimer (see Reliable.h) to set a Timer for retransmission.
 // Use reliSendto (see Reliable.h) to send a segment to the receiver.
 // Note that this function should return the increment of bytes in flight
