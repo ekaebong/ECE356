@@ -4,6 +4,7 @@ import time
 import json
 import argparse
 import subprocess
+import threading
 import signal
 
 # inpath = "/autograder/submission"
@@ -87,7 +88,10 @@ params = [
     {"dataloss": 5, "synloss": 50, "finloss": 25, "timeout": 90},
     {"dataloss": 5, "synloss": 50, "finloss": 25, "timeout": 90, 'seqnum': 4291637248}
 ]
-    
+
+def run_tshark():
+    os.system('tshark -i lo -f "udp and port 10000" -w ./trace1.pcap')
+
 def runTestCase(i):
     param = params[i]
     case = {
@@ -107,7 +111,9 @@ if os.path.exists("./trace1.pcap"):
     os.system("rm ./trace1.pcap")
 
 os.system("echo '' > ./trace1.pcap; chmod 766 ./trace1.pcap")
-tshark = subprocess.Popen('tshark -i lo -f "udp and port 10000" -w ./trace1.pcap'.split(), stdout=subprocess.DEVNULL, stderr=sys.stderr)
+tshark = threading.Thread(target=run_tshark, args=())
+tshark.setDaemon(True)
+tshark.start()
 if args.t is not None:
     runTestCase(args.t[0]-1)
     exit(0)
