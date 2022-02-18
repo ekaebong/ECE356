@@ -23,7 +23,7 @@ os.chdir(args.inpath)
 def killprocs():
     os.system("pkill --signal 9 -f Sender >/dev/null 2>&1")
     os.system("pkill --signal 9 -f Receiver >/dev/null 2>&1")
-    os.system("pkill --signal 9 -f trace1.pcap >/dev/null 2>&1")
+    os.system("pkill --signal 9 -f trace1 >/dev/null 2>&1")
     time.sleep(1)
 
 
