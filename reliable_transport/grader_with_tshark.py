@@ -127,4 +127,4 @@ for i in range(0, 10):
     score += case["score"]
 
 print("Total: %d/100" % score)
-killprocs()
+os.system("pkill --signal 9 -f trace1")
