@@ -23,6 +23,7 @@ os.chdir(args.inpath)
 def killprocs():
     os.system("pkill --signal 9 -f Sender >/dev/null 2>&1")
     os.system("pkill --signal 9 -f Receiver >/dev/null 2>&1")
+    os.system("pkill --signal 9 -f tshark >/dev/null 2>&1")
     time.sleep(1)
 
 
@@ -126,4 +127,4 @@ for i in range(0, 10):
     score += case["score"]
 
 print("Total: %d/100" % score)
-
+killprocs()
