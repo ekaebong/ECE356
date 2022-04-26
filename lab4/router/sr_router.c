@@ -136,90 +136,90 @@ void sr_handlepacket(struct sr_instance* sr,
 
     }
   /*Determines if packet type is IP*/
-  if (ethertype(packet) == ethertype_ip){
+  else if (ethertype(packet) == ethertype_ip){
     sr_ethernet_hdr_t* ethernet_header = (sr_ethernet_hdr_t*)packet;
     sr_ip_hdr_t* ip_header = (sr_ip_hdr_t*)(packet+sizeof(sr_ethernet_hdr_t));
     struct sr_if* sr_interface = sr_get_interface(sr, interface);
-    uint16_t ip_checksum = ntohs(ip_header->ip_sum);
+    
+    uint16_t ip_checksum = ip_header->ip_sum;
     uint16_t check_checksum = 0;
     ip_header->ip_sum = 0; 
-    check_checksum = cksum(packet,len);
+    check_checksum = cksum(ip_header,sizeof(sr_ip_hdr_t));
     /*2.a: Check whether the checksum in the IP header is correct. If incorrect, ignore packet and return*/
     if (ip_checksum != check_checksum){
       printf("Dropping Packet, Checksum test failed \n");
       return;
     }
     else{ 
-      /*2.b: If the destination IP of this packet is router's own IP*/
-      if(ip_header->ip_dst == ip_header->ip_src){
-        /*2.b.i If this is an ICMP packet:*/
-        if(ip_header->ip_p == ip_protocol_icmp){
-          sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t*)(((uint8_t*)packet + sizeof(ip_header)));
-          uint8_t echo_request = 8; 
-          /*2.b.i.1 If not an ICMP ECHO packet, ignore*/
-          if(icmp_header->icmp_type != echo_request){
-            return;
-          }
-          /*2.b.i.2 Generate a correct ICMP Reply Packet*/
-          else{
-            /*2.b.i.2.a Malloc a space to store ethernet header, IP header and ICMP header*/
-            uint8_t* reply = (uint8_t * )malloc(sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
-            sr_ethernet_hdr_t* reply_eth_hdr = (sr_ethernet_hdr_t*)reply;
-            sr_ip_hdr_t* reply_ip_hdr = (sr_ip_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
-            sr_icmp_hdr_t* reply_icmp_hdr = (sr_icmp_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
-
-            /*2.b.i.2.b Fill the ICMP code, type the ICMP header*/
-            reply_icmp_hdr->icmp_type = 0;
-            reply_icmp_hdr->icmp_code = 0;
-            
-            /*2.b.i.2.c Fill the source IP address, destination IP address, ttl, protocol, length, checksum in IP header*/
-            reply_ip_hdr->ip_src = ip_header->ip_dst; 
-            reply_ip_hdr->ip_dst = ip_header->ip_src; 
-            reply_ip_hdr->ip_ttl = INIT_TTL; 
-            reply_ip_hdr->ip_p = ip_protocol_icmp; 
-            reply_ip_hdr->ip_len = ip_header->ip_len; 
-            reply_ip_hdr->ip_sum = ip_header->ip_sum; 
-
-            /*2.b.i.2.d.Fill the Source MAC Address, Destination MAC Address, Ethernet Type in ethernet header*/
-            memcpy(reply_eth_hdr->ether_shost, sr_interface->addr, ETHER_ADDR_LEN);
-            memcpy(reply_eth_hdr->ether_dhost, ethernet_header->ether_shost, ETHER_ADDR_LEN);
-            reply_eth_hdr->ether_type = ethernet_header->ether_type;
-
-            /*2.b.i.2.e find the Destination MAC Address from the ARP cache which you have done in step 1.a.i*/
-            /*2.b.i.3 : Send this ICMP reply back to the Sender */
-            sr_send_packet(sr, reply, sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t), sr_interface->name);
-
-          }
+      ip_header->ip_sum = ip_checksum;
+    }
+    /*2.b: If the destination IP of this packet is router's own IP*/
+    struct sr_if* dest_interface = get_if_from_ip(sr, ip_header->ip_dst);
+    if(dest_interface){
+      /*2.b.i If this is an ICMP packet:*/
+      if(ip_header->ip_p == ip_protocol_icmp){
+        sr_icmp_hdr_t* icmp_header = (sr_icmp_hdr_t*)(((uint8_t*)packet + sizeof(ip_header)));
+        uint8_t echo_request = 0x08; 
+        /*2.b.i.1 If not an ICMP ECHO packet, ignore*/
+        if(icmp_header->icmp_type == echo_request){
+          return;
         }
-        /*2.b.ii send the ICMP Destination protocol unreachable back to the Sender*/
+        /*2.b.i.2 Generate a correct ICMP Reply Packet*/
         else{
-          uint8_t* reply = (uint8_t * )malloc(sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
-          sr_ethernet_hdr_t* reply_eth_hdr = (sr_ethernet_hdr_t*)reply;
-          sr_ip_hdr_t* reply_ip_hdr = (sr_ip_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
-          sr_icmp_t3_hdr_t* reply_icmp_hdr = (sr_icmp_t3_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
-          reply_icmp_hdr->icmp_type = 3;
-          reply_icmp_hdr->icmp_code = 1;
-          memcpy(reply_icmp_hdr->data, packet, ICMP_DATA_SIZE);
+          /*2.b.i.2.a Malloc a space to store ethernet header, IP header and ICMP header*/
+          uint8_t* reply = (uint8_t * )malloc(ntohs(ip_header->ip_len) + sizeof(sr_ethernet_hdr_t));
+          sr_ethernet_hdr_t *reply_eth_hdr = (sr_ethernet_hdr_t*)reply;
+          sr_ip_hdr_t *reply_ip_hdr = (sr_ip_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
+          sr_icmp_t8_hdr_t* reply_icmp_hdr = (sr_icmp_t8_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t)+sizeof(sr_ip_hdr_t));
+           /*2.b.i.2.b Fill the ICMP code, type the ICMP header*/
+          reply_icmp_hdr->icmp_type = 0x00;
+          reply_icmp_hdr->icmp_code = 0x00;
+          
+          /*2.b.i.2.c Fill the source IP address, destination IP address, ttl, protocol, length, checksum in IP header*/
           reply_ip_hdr->ip_src = ip_header->ip_dst; 
           reply_ip_hdr->ip_dst = ip_header->ip_src; 
           reply_ip_hdr->ip_ttl = INIT_TTL; 
           reply_ip_hdr->ip_p = ip_protocol_icmp; 
           reply_ip_hdr->ip_len = ip_header->ip_len; 
-          reply_ip_hdr->ip_sum = ip_header->ip_sum;
+          reply_ip_hdr->ip_sum = ip_header->ip_sum; 
+           /*2.b.i.2.d.Fill the Source MAC Address, Destination MAC Address, Ethernet Type in ethernet header*/
           memcpy(reply_eth_hdr->ether_shost, sr_interface->addr, ETHER_ADDR_LEN);
           memcpy(reply_eth_hdr->ether_dhost, ethernet_header->ether_shost, ETHER_ADDR_LEN);
           reply_eth_hdr->ether_type = ethernet_header->ether_type;
+           /*2.b.i.2.e find the Destination MAC Address from the ARP cache which you have done in step 1.a.i*/
+          /*2.b.i.3 : Send this ICMP reply back to the Sender */
           sr_send_packet(sr, reply, sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t), sr_interface->name);
-        }
+         }
       }
-      /*2.c.i Check whether the TTL in the IP header equals 1. If TTL=1, your router should reply an ICMP Time Exceeded message back to the Sender*/
+      /*2.b.ii send the ICMP Destination protocol unreachable back to the Sender*/
       else{
-        if(ip_header->ip_ttl==1){
-           return;
-        }
+        uint8_t* reply = (uint8_t * )malloc(sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t));
+        sr_ethernet_hdr_t* reply_eth_hdr = (sr_ethernet_hdr_t*)reply;
+        sr_ip_hdr_t* reply_ip_hdr = (sr_ip_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
+        sr_icmp_t3_hdr_t* reply_icmp_hdr = (sr_icmp_t3_hdr_t*)(reply+sizeof(sr_ethernet_hdr_t));
+        reply_icmp_hdr->icmp_type = 3;
+        reply_icmp_hdr->icmp_code = 1;
+        memcpy(reply_icmp_hdr->data, packet, ICMP_DATA_SIZE);
+        reply_ip_hdr->ip_src = ip_header->ip_dst; 
+        reply_ip_hdr->ip_dst = ip_header->ip_src; 
+        reply_ip_hdr->ip_ttl = INIT_TTL; 
+        reply_ip_hdr->ip_p = ip_protocol_icmp; 
+        reply_ip_hdr->ip_len = ip_header->ip_len; 
+        reply_ip_hdr->ip_sum = ip_header->ip_sum;
+        memcpy(reply_eth_hdr->ether_shost, sr_interface->addr, ETHER_ADDR_LEN);
+        memcpy(reply_eth_hdr->ether_dhost, ethernet_header->ether_shost, ETHER_ADDR_LEN);
+        reply_eth_hdr->ether_type = ethernet_header->ether_type;
+        sr_send_packet(sr, reply, sizeof(sr_ip_hdr_t) + sizeof(sr_ethernet_hdr_t), sr_interface->name);
+      }
+    }
+    /*2.c.i Check whether the TTL in the IP header equals 1. If TTL=1, your router should reply an ICMP Time Exceeded message back to the Sender*/
+    else{
+     if(ip_header->ip_ttl==1){
+         return;
       }
     }
   }
-  }
+}
+}
 
 }/* end sr_ForwardPacket */
